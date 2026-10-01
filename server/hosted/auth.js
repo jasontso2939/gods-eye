@@ -9,7 +9,12 @@ import crypto from 'node:crypto';
  *             otherwise the project's JWKS is fetched for ES256/RS256)
  *
  * The session cookie is HMAC-SHA256 signed with GEV_SESSION_SECRET and
- * carries only {sub, name, admin, exp}. Nothing else about the user is kept.
+ * carries only {sub, name, admin, exp} (plus, for token logins, a short
+ * fingerprint of the token used). Nothing else about the user is kept.
+ *
+ * Token sessions are checked against the current token list on every
+ * request, so removing or changing someone's token in the environment
+ * signs them out at once, and dropping ":admin" demotes them at once.
  */
 
 export const COOKIE = 'gev_session';
@@ -53,7 +58,17 @@ export function verifySession(cookie, secret, now = Date.now()) {
     name: p.name || p.sub,
     admin: p.admin === true,
     exp: p.exp,
+    ...(typeof p.kid === 'string' ? { kid: p.kid } : {}),
   };
+}
+
+/** Short, non-reversible fingerprint of an access token for session checks. */
+export function tokenFingerprint(token, secret) {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`gev-token:${token}`)
+    .digest('base64url')
+    .slice(0, 22);
 }
 
 export function parseCookies(header) {
@@ -215,6 +230,8 @@ export function createAuth(env = process.env, { fetchImpl = fetch } = {}) {
 
   let login;
   let page;
+  // Optional per-request re-check of a verified session (token mode).
+  let recheck = (user) => user;
   if (mode === 'tokens') {
     const tokens = parseAccessTokens(env.GEV_ACCESS_TOKENS);
     // A single owner token (what a host's "generate secret" button makes).
@@ -231,15 +248,27 @@ export function createAuth(env = process.env, { fetchImpl = fetch } = {}) {
       throw new Error(
         'GEV_AUTH_MODE=tokens needs GEV_ACCESS_TOKEN or GEV_ACCESS_TOKENS',
       );
+    const isAdmin = (entry) =>
+      entry.admin || admins.has(entry.name.toLowerCase());
+    const byKid = new Map(
+      tokens.map((t) => [`${t.name}|${tokenFingerprint(t.token, secret)}`, t]),
+    );
     login = async (_req, body) => {
       const hit = checkAccessToken(tokens, String(body?.token || ''));
       return hit
         ? {
             sub: `token:${hit.name}`,
             name: hit.name,
-            admin: hit.admin || admins.has(hit.name.toLowerCase()),
+            admin: isAdmin(hit),
+            kid: tokenFingerprint(hit.token, secret),
           }
         : null;
+    };
+    recheck = (user) => {
+      if (!user.id.startsWith('token:')) return null;
+      const entry = byKid.get(`${user.name}|${user.kid}`);
+      if (!entry || `token:${entry.name}` !== user.id) return null;
+      return { ...user, admin: isAdmin(entry) };
     };
     page = { mode };
   } else if (mode === 'supabase') {
@@ -289,7 +318,8 @@ export function createAuth(env = process.env, { fetchImpl = fetch } = {}) {
     page,
     authenticate(req) {
       const cookie = parseCookies(req.headers.cookie)[COOKIE];
-      return cookie ? verifySession(cookie, secret) : null;
+      const user = cookie ? verifySession(cookie, secret) : null;
+      return user ? recheck(user) : null;
     },
     async login(req, body) {
       const who = await login(req, body);
@@ -297,7 +327,13 @@ export function createAuth(env = process.env, { fetchImpl = fetch } = {}) {
       if (who.forbidden) return { forbidden: true };
       const exp = Math.min(Date.now() + SESSION_MAX_MS, who.exp || Infinity);
       const cookie = signSession(
-        { sub: who.sub, name: who.name, admin: !!who.admin, exp },
+        {
+          sub: who.sub,
+          name: who.name,
+          admin: !!who.admin,
+          exp,
+          ...(who.kid ? { kid: who.kid } : {}),
+        },
         secret,
       );
       return {

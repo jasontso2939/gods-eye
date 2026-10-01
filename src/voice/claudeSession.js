@@ -26,6 +26,7 @@ export const CLAUDE_ERRORS = Object.freeze({
   upstream_overloaded: 'Claude is busy right now. Try again shortly.',
   upstream_unreachable: 'Could not reach Claude.',
   quota_exceeded: 'Too many voice requests this hour.',
+  guest_read_only: 'Voice control is turned off for guest logins.',
 });
 
 /** Drop the oldest turns, keeping the history starting at a plain user turn. */
@@ -285,6 +286,10 @@ export function createClaudeSession({
     const status = await refreshBudget();
     if (!status?.configured) {
       setState('error', CLAUDE_ERRORS.claude_not_configured);
+      return;
+    }
+    if (status.allowed === false) {
+      setState('error', CLAUDE_ERRORS.guest_read_only);
       return;
     }
     active = true;

@@ -40,6 +40,26 @@ at build time and must be referrer-restricted to your domain (SECURITY.md).
 - DelDOT live video defaults off (`CCTV_DELDOT_ENABLED=0`): its terms do not
   clearly allow redistribution.
 
+## Guest (view-only) logins
+
+Any token without `:admin` is a guest. Guests can use the whole map, but:
+
+- voice control is off (`/api/claude/turn`, `/api/realtime/token`,
+  `/api/openai/*`), so they cannot spend your AI budget. Set
+  `GEV_GUEST_VOICE=1` to let them use it within the same caps;
+- they cannot create, change or delete watch rules, webhooks, alerts or
+  history jobs (`/api/watch/*`, `/api/history/*` are read-only for them);
+- there is nothing in the site that edits code, environment variables or
+  keys for anyone; those live only in GitHub and Render.
+
+Example for family and friends, keeping your own `GEV_ACCESS_TOKEN`:
+
+    GEV_ACCESS_TOKENS=family:<a 24+ character passphrase>
+
+Sessions last at most 12 hours and are re-checked on every request. Change
+or delete a token and everyone using it is signed out on the next click;
+remove `:admin` and that user loses admin at once.
+
 ## Claude voice control
 
 Set `ANTHROPIC_API_KEY` and the mic button uses Claude instead of OpenAI
