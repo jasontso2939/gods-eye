@@ -28,6 +28,7 @@ import { windProxy } from './wind.js';
 import { historyProvider } from './history/index.js';
 import { alertsProvider } from './alerts/index.js';
 import { camerasProvider } from './cameras/index.js';
+import { claudeProvider } from './claude/index.js';
 
 /** Construct the local provider plugins in their established order. */
 function localProviderPlugins() {
@@ -61,6 +62,7 @@ function localProviderPlugins() {
     historyProvider(),
     alertsProvider(),
     camerasProvider(),
+    claudeProvider(),
     keySetupEndpoint(),
   ];
 }

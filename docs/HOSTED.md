@@ -40,6 +40,28 @@ at build time and must be referrer-restricted to your domain (SECURITY.md).
 - DelDOT live video defaults off (`CCTV_DELDOT_ENABLED=0`): its terms do not
   clearly allow redistribution.
 
+## Claude voice control
+
+Set `ANTHROPIC_API_KEY` and the mic button uses Claude instead of OpenAI
+Realtime. The browser turns speech into text (Chrome, Edge or Safari), the
+server sends it to Claude with the map actions as tools, and the browser
+speaks the reply. The key never reaches the browser.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GEV_CLAUDE_MONTHLY_CAP_USD` | `5` | Hard monthly cap enforced by the server |
+| `GEV_CLAUDE_DAILY_CAP_USD` | `1` | Hard daily cap enforced by the server |
+| `GEV_CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Must have a known price in `server/providers/claude/ledger.js` |
+| `GEV_CLAUDE_MAX_TOKENS` | `600` | Reply cap per call |
+| `GEV_VOICE_PROVIDER` | auto | `openai` forces the old backend even with a Claude key |
+
+Before each call the server reserves the worst case (all input uncached plus
+the full reply cap) and refuses the call if that would cross either cap; after
+the call it books the real cost from the response. The ledger lives in the
+history store, so on the free Render plan without `GEV_DATABASE_URL` it resets
+when the service restarts. Back it with Anthropic's own limits: a workspace
+spend limit in the Claude Console, and prepaid credits with auto-reload off.
+
 ## Deploy on Render (fastest)
 
 `render.yaml` is a Render Blueprint. Open
