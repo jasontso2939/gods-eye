@@ -86,6 +86,8 @@ export function claudeConfig(env = process.env) {
       Math.max(64, num(env.GEV_CLAUDE_MAX_TOKENS, 600)),
     ),
     // Operator-only override (tests, or an approved gateway). Never from a request.
+    // Hosted guests (non-admin logins) may use voice only when this is '1'.
+    guestVoice: env.GEV_GUEST_VOICE === '1',
     apiUrl: /^https?:\/\//.test(env.GEV_CLAUDE_API_URL || '')
       ? env.GEV_CLAUDE_API_URL
       : DEFAULT_API_URL,
@@ -267,6 +269,8 @@ export function createClaudeService({
         provider: config.provider,
         configured: config.enabled,
         model: config.enabled ? config.model : null,
+        allowed:
+          !req.gevUser || req.gevUser.admin === true || config.guestVoice,
         priced: Boolean(priceFor(config.model)),
         budget: config.enabled ? await ledger.status() : null,
         stats,
