@@ -9,6 +9,7 @@
 
 export const DEFAULT_QUOTAS = Object.freeze([
   ['/api/realtime/token', 20, 3600],
+  ['/api/claude/turn', 300, 3600],
   ['/api/openai', 60, 3600],
   ['/api/places', 300, 3600],
   ['/api/geocode', 300, 3600],

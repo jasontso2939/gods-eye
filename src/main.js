@@ -1,10 +1,15 @@
 import { createStandaloneApplication } from './standalone/application.js';
 import { describeError } from './standalone/errors.js';
+import { createVoiceProviderChoice } from './voice/providerChoice.js';
+
+// Claude or OpenAI Realtime behind the mic button, as the server reports.
+const voiceChoice = createVoiceProviderChoice();
 
 const application = createStandaloneApplication({
   googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
   cesiumToken: import.meta.env.CESIUM_ION_TOKEN,
   allowQaRegistration: import.meta.env.DEV,
+  voice: { createSession: voiceChoice.createSession },
 });
 
 application.start().then(
