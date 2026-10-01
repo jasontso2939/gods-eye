@@ -25,6 +25,13 @@ services:
         sync: false
       - key: AISSTREAM_API_KEY
         sync: false
+      # Optional: Claude voice control (server-side key, hard spend caps).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEV_CLAUDE_MONTHLY_CAP_USD
+        value: '5'
+      - key: GEV_CLAUDE_DAILY_CAP_USD
+        value: '1'
       # Optional: Postgres connection string so history survives restarts.
       - key: GEV_DATABASE_URL
         sync: false
