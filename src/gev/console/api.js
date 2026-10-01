@@ -18,7 +18,10 @@ async function request(method, path, body) {
     data = null;
   }
   if (!res.ok) {
-    const msg = data?.detail || data?.error || `HTTP ${res.status}`;
+    const msg =
+      data?.error === 'guest_read_only'
+        ? 'This login is view-only, so changes are turned off.'
+        : data?.detail || data?.error || `HTTP ${res.status}`;
     const error = new Error(msg);
     error.status = res.status;
     error.data = data;

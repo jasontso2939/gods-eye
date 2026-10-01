@@ -30,6 +30,35 @@ const DENIED_ROUTES = [
 ];
 
 /**
+ * What a non-admin ("guest") login may not do. Guests can look at
+ * everything, but cannot spend the operator's AI budget or save anything
+ * that keeps running on the server (watch rules, webhooks, history jobs).
+ *
+ *   voice       paid AI calls; allowed for guests only with GEV_GUEST_VOICE=1
+ *   writesOnly  reading is fine, changing is admin-only
+ */
+export const GUEST_LIMITS = Object.freeze([
+  { prefix: '/api/claude/turn', voice: true },
+  { prefix: '/api/realtime/token', voice: true },
+  { prefix: '/api/openai', voice: true },
+  { prefix: '/api/watch', writesOnly: true },
+  { prefix: '/api/history', writesOnly: true },
+]);
+
+const READ_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+
+/** True when this user may make this request under the guest limits. */
+export function guestMayAccess(user, method, path, env = {}) {
+  if (!user || user.admin) return true;
+  for (const rule of GUEST_LIMITS) {
+    if (path !== rule.prefix && !path.startsWith(`${rule.prefix}/`)) continue;
+    if (rule.voice) return env.GEV_GUEST_VOICE === '1';
+    if (rule.writesOnly) return READ_METHODS.includes(method);
+  }
+  return true;
+}
+
+/**
  * Decide whether a state-changing request came from our own pages.
  *
  * Browsers set `Sec-Fetch-Site` on every request and scripts cannot forge
@@ -171,6 +200,8 @@ export function createHostedServer({
     const full = req.originalUrl.split('?')[0];
     if (DENIED_ROUTES.some((r) => full === r || full.startsWith(`${r}/`)))
       return sendError(res, 404, 'not_available');
+    if (!guestMayAccess(req.gevUser, req.method, full, env))
+      return sendError(res, 403, 'guest_read_only');
     // Writes must come from our own pages (cookies are SameSite=Lax too).
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       if (!isSameOriginWrite(req, env, publicOrigin))
@@ -187,7 +218,11 @@ export function createHostedServer({
   });
 
   app.use('/api/me', (req, res) =>
-    sendJson(res, 200, { name: req.gevUser.name, admin: req.gevUser.admin }),
+    sendJson(res, 200, {
+      name: req.gevUser.name,
+      admin: req.gevUser.admin,
+      voice: guestMayAccess(req.gevUser, 'POST', '/api/claude/turn', env),
+    }),
   );
 
   const fakeVite = {
