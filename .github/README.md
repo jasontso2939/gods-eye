@@ -14,7 +14,7 @@ God's Eye View runs on your own machine and binds to localhost on purpose, becau
 
 ## What I added
 
-About 9,500 lines, almost all in 51 new files. Upstream source files changed by under 80 lines in total, mostly one-line hooks, so syncing with upstream stays easy. 64 tests in 9 files cover the new code.
+About 9,500 lines, almost all in 51 new files. About 80 lines of upstream source changed, mostly small hooks, so syncing with upstream stays easy. 64 tests in 9 files cover the new code.
 
 | Feature | What it does | Where |
 | --- | --- | --- |
